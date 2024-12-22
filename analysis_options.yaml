@@ -1,0 +1,12 @@
+analyzer:
+  errors:
+    uri_does_not_exist: ignore
+    undefined_class: ignore
+    undefined_method: ignore
+    undefined_super_member: ignore
+    extends_non_class: ignore
+    super_formal_parameter_without_associated_named: ignore
+    override_on_non_overriding_member: ignore
+    undefined_identifier: ignore
+    creation_with_non_type: ignore
+    # Puedes añadir más errores específicos si lo necesitas

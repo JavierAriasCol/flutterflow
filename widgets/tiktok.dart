@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:toktik/presentation/widgets/video/video_progress_bar.dart';
 import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 class TikTok extends StatefulWidget {
   final String videoUrl;
-
+  
   const TikTok({
     super.key,
     required this.videoUrl,
@@ -18,39 +19,51 @@ class _TikTokState extends State<TikTok> {
   late VideoPlayerController controller;
   bool _isPlaying = false;
   bool _isVisible = false;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    controller = VideoPlayerController.network(
-      widget.videoUrl/*,
-      httpHeaders: {
-        'Cache-Control': 'max-age=432000',
-        'Connection': 'keep-alive',
-      },*/
-    )
-      ..initialize().then((_) {
-        if (mounted && _isVisible) {
-          setState(() => _isPlaying = true);
-          controller.play();
-        }
-      })
-      ..setLooping(true);
+    loadVideo();
+  }
+
+  Future<void> loadVideo() async {
+    controller = VideoPlayerController.network(widget.videoUrl)
+    ..setLooping(true);
+    // Inicializamos el controlador
+    await controller.initialize();
+    
+    // Una vez inicializado, actualizamos el estado
+    if (mounted) {
+      setState(() {
+        _isInitialized = true;
+      });
+    }
   }
 
   @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    return VisibilityDetector(
+      key: Key(widget.videoUrl),
+      onVisibilityChanged: _onVisibilityChanged,
+      child: Stack(
+        children: [
+          // Si el video está inicializado, mostramos el player
+          if (_isInitialized)
+            VideoPlayer(controller)
+          // Mientras se inicializa, mostramos el indicador
+          else
+            const Center(
+              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 1),
+            ),
+          
+          // Resto de tu UI (gradientes, botones, etc)
+          ProgressBar(controller: controller),
+        ],
+      ),
+    );
   }
 
-  void _togglePlayPause() {
-    if (!mounted) return;    
-    setState(() {
-      _isPlaying = !_isPlaying;
-      _isPlaying ? controller.play() : controller.pause();
-    });
-}
 
   void _onVisibilityChanged(VisibilityInfo info) {
     if (!mounted) return;
@@ -72,78 +85,8 @@ class _TikTokState extends State<TikTok> {
   }
 
   @override
-Widget build(BuildContext context) {
-  return VisibilityDetector(
-    key: Key(widget.videoUrl),
-    onVisibilityChanged: _onVisibilityChanged,
-    child: GestureDetector(
-      onTap: _togglePlayPause,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Video Player con Loading
-          _buildMainContent(),
-        
-          // Play/Pause Button
-          _buildPlayPauseButton(),
-          
-          // Progress Bar
-          _buildProgressBar(),
-        ],
-      ),
-    ),
-  );
-}
-
-Widget _buildMainContent() {
-  return SizedBox.expand(
-    child: controller.value.isInitialized
-        ? AspectRatio(
-            aspectRatio: controller.value.aspectRatio,
-            child: VideoPlayer(controller),
-          )
-        : const Center(
-            child: CircularProgressIndicator(
-              strokeWidth: 1,
-              color: Colors.white,
-            ),
-          ),
-  );
-}
-
-Widget _buildPlayPauseButton() {
-  if (!controller.value.isInitialized) return const SizedBox.shrink();
-  
-  return Positioned(
-    bottom: 10,
-    right: 15,
-    child: AnimatedOpacity(
-      opacity: !_isPlaying ? 1.0 : 0.0,
-      duration: const Duration(milliseconds: 150),
-      child: const Icon(
-        Icons.play_arrow,
-        size: 30,
-        color: Colors.white60,
-      ),
-    ),
-  );
-}
-
-Widget _buildProgressBar() {
-  if (!controller.value.isInitialized) return const SizedBox.shrink();
-  return Positioned(
-    bottom: 0,
-    left: 0,
-    right: 0,
-    child: VideoProgressIndicator(
-      controller,
-      allowScrubbing: true,
-      colors: VideoProgressColors(
-        playedColor: Colors.red.shade700,
-        bufferedColor: Colors.white70,
-        backgroundColor: Colors.grey,
-      ),
-    ),
-  );
-}
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
 }
