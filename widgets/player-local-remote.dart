@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:io';
 
@@ -6,12 +7,12 @@ class LocalVideoPlayer extends StatefulWidget {
     super.key,
     this.width,
     this.height,
-    required this.videoPathOrUrl,
+    required this.videoPath,  // Cambiado el nombre para reflejar que solo acepta path local
   });
 
   final double? width;
   final double? height;
-  final String videoPathOrUrl;
+  final String videoPath;
 
   @override
   State<LocalVideoPlayer> createState() => _CustomVideoPlayerState();
@@ -20,26 +21,14 @@ class LocalVideoPlayer extends StatefulWidget {
 class _CustomVideoPlayerState extends State<LocalVideoPlayer> {
   late VideoPlayerController _videoPlayerController;
   bool _isPlaying = false;
-  bool _isLocalFile = false;
 
   @override
   void initState() {
     super.initState();
-    _isLocalFile = !(widget.videoPathOrUrl.startsWith('http') ||
-        widget.videoPathOrUrl.startsWith('https'));
-    if (!_isLocalFile) {
-      _videoPlayerController =
-          VideoPlayerController.networkUrl(Uri.parse(widget.videoPathOrUrl))
-            ..initialize().then((_) {
-              setState(() {});
-            });
-    } else {
-      _videoPlayerController =
-          VideoPlayerController.file(File(widget.videoPathOrUrl))
-            ..initialize().then((_) {
-              setState(() {});
-            });
-    }
+    _videoPlayerController = VideoPlayerController.file(File(widget.videoPath))
+      ..initialize().then((_) {
+        setState(() {});
+      });
     _videoPlayerController.addListener(_videoListener);
   }
 
@@ -85,7 +74,7 @@ class _CustomVideoPlayerState extends State<LocalVideoPlayer> {
                 Center(
                   child: AspectRatio(
                     aspectRatio: _videoPlayerController.value.aspectRatio,
-                    child: _isLocalFile && Platform.isAndroid
+                    child: Platform.isAndroid
                         ? RotatedBox(
                             quarterTurns: -1,
                             child: VideoPlayer(_videoPlayerController),
@@ -112,9 +101,7 @@ class _CustomVideoPlayerState extends State<LocalVideoPlayer> {
                 ),
               ],
             )
-          : Center(child: CircularProgressIndicator()),
+          : const Center(child: CircularProgressIndicator()),
     );
   }
 }
-// Set your widget name, define your parameter, and then add the
-// boilerplate code using the green button on the right!
