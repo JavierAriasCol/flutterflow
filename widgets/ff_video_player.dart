@@ -15,7 +15,7 @@ enum VideoType {
   network,
 }
 
-Set<VideoPlayerController> _videoPlayers = Set();
+Set<VideoPlayerController> _videoPlayers = {};
 
 class FlutterFlowVideoPlayer extends StatefulWidget {
   const FlutterFlowVideoPlayer({
@@ -100,7 +100,7 @@ class _FlutterFlowVideoPlayerState extends State<FlutterFlowVideoPlayer>
   }
 
   double get width => widget.width == null || widget.width! >= double.infinity
-      ? MediaQuery.sizeOf(context).width
+      ? MediaQuery.of(context).size.width
       : widget.width!;
 
   double get height =>
@@ -122,13 +122,6 @@ class _FlutterFlowVideoPlayerState extends State<FlutterFlowVideoPlayer>
     _videoPlayerController = widget.videoType == VideoType.network
         ? VideoPlayerController.networkUrl(Uri.parse(widget.path!))
         : VideoPlayerController.asset(widget.path);
-    if (kIsWeb && widget.autoPlay) {
-      // Browsers generally don't allow autoplay unless it's muted.
-      // Ideally this should be configurable, but for now we just automatically
-      // mute on web.
-      // See https://pub.dev/packages/video_player_web#autoplay
-      _videoPlayerController!.setVolume(0);
-    }
     if (!widget.lazyLoad) {
       await _videoPlayerController?.initialize();
     }
@@ -169,17 +162,7 @@ class _FlutterFlowVideoPlayerState extends State<FlutterFlowVideoPlayer>
     });
 
     _chewieController!.addListener(() {
-      // On web, Chewie has issues when exiting fullscreen. As a workaround,
-      // reset the video player when exiting fullscreen, as suggested here:
-      // https://github.com/fluttercommunity/chewie/issues/688#issuecomment-1790033300.
-      if (kIsWeb && !_chewieController!.isFullScreen && _isFullScreen) {
-        SchedulerBinding.instance.addPostFrameCallback((_) async {
-          final position = _videoPlayerController!.value.position;
-          _disposeCurrentPlayer();
-          await _initializePlayer();
-          _videoPlayerController!.seekTo(position);
-        });
-      }
+      // Se eliminó el código específico para web/desktop.
       _isFullScreen = _chewieController!.isFullScreen;
     });
     if (mounted) {
@@ -200,7 +183,7 @@ class _FlutterFlowVideoPlayerState extends State<FlutterFlowVideoPlayer>
               ? Chewie(controller: _chewieController!)
               : (_chewieController != null &&
                       _chewieController!.videoPlayerController.value.hasError)
-                  ? Text('Error playing video')
+                  ? const Text('Error playing video')
                   : Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
