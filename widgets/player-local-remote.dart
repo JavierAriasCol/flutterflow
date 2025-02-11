@@ -20,6 +20,7 @@ class LocalVideoPlayer extends StatefulWidget {
 
 class _LocalVideoPlayerState extends State<LocalVideoPlayer> {
   VideoPlayerController? controller;
+  bool _isPlaying = false;
 
   @override
   void initState() {
@@ -32,10 +33,24 @@ class _LocalVideoPlayerState extends State<LocalVideoPlayer> {
       ..setLooping(true)
       ..initialize().then((_) {
         if (mounted) {
-          setState(() {});
+          setState(() {
+            _isPlaying = true;
+          });
           controller?.play();
         }
       });
+  }
+
+  void _togglePlayPause() {
+    setState(() {
+      if (controller?.value.isPlaying ?? false) {
+        controller?.pause();
+        _isPlaying = false;
+      } else {
+        controller?.play();
+        _isPlaying = true;
+      }
+    });
   }
 
   @override
@@ -47,15 +62,34 @@ class _LocalVideoPlayerState extends State<LocalVideoPlayer> {
   @override
   Widget build(BuildContext context) {
     if (controller == null || !controller!.value.isInitialized) {
-      return const Center(
-          child:
-              CircularProgressIndicator(strokeWidth: 1, color: Colors.white));
+      return const SizedBox.shrink();
     }
 
     return Center(
-      child: AspectRatio(
-        aspectRatio: controller!.value.aspectRatio,
-        child: VideoPlayer(controller!),
+      child: GestureDetector(
+        onTap: _togglePlayPause,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            AspectRatio(
+              aspectRatio: controller!.value.aspectRatio,
+              child: VideoPlayer(controller!),
+            ),
+            Positioned.fill(
+              child: AnimatedOpacity(
+                opacity: !_isPlaying ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 150),
+                child: const Center(
+                  child: Icon(
+                    Icons.play_arrow,
+                    size: 30,
+                    color: Colors.white60,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
