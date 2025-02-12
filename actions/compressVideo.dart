@@ -10,6 +10,8 @@ Future<bool> compressVideo(String videoPath, int indexState) async {
     FFAppState().uNewTread[indexState].videoUploaded.uploadProgress = 0.0;
     FFAppState().uNewTread[indexState].videoUploaded.isCompressed = false;
     FFAppState().uNewTread[indexState].videoUploaded.isCompressing = true;
+
+    FFAppState().isCompressingVideo = true;
   });
 
   // Configurar un listener para el progreso de la compresión
@@ -37,6 +39,11 @@ Future<bool> compressVideo(String videoPath, int indexState) async {
         FFAppState().uNewTread[indexState].videoUploaded.statusText =
             "Falló la carga del video";
         FFAppState().uNewTread[indexState].videoUploaded.uploadProgress = 0.0;
+        FFAppState().uNewTread[indexState].videoUploaded.videoPath = null;
+        FFAppState().uNewTread[indexState].videoUploaded.isCompressed = false;
+        FFAppState().uNewTread[indexState].videoUploaded.isCompressing = false;
+
+        FFAppState().isCompressingVideo = false;
       });
       return false;
     }
@@ -50,11 +57,19 @@ Future<bool> compressVideo(String videoPath, int indexState) async {
           compressedVideoPath;
       FFAppState().uNewTread[indexState].videoUploaded.isCompressed = true;
       FFAppState().uNewTread[indexState].videoUploaded.isCompressing = false;
+
+      FFAppState().isCompressingVideo = false;
     });
 
     return true;
   } finally {
     // Asegurarse de desuscribirse, sin importar el resultado o si ocurrió alguna excepción.
     subscription.unsubscribe();
+    FFAppState().update(() {
+      FFAppState().uNewTread[indexState].videoUploaded.uploadProgress = 0.0;
+      FFAppState().uNewTread[indexState].videoUploaded.isCompressing = false;
+
+      FFAppState().isCompressingVideo = false;
+    });
   }
 }
