@@ -16,6 +16,7 @@
 
 import 'package:video_player/video_player.dart';
 import 'dart:io';
+import 'package:flutter/material.dart';
 
 class LocalVideoThumbnail extends StatefulWidget {
   const LocalVideoThumbnail({
@@ -42,7 +43,7 @@ class _LocalVideoThumbnailState extends State<LocalVideoThumbnail> {
     // Asigna el controlador global sin llamar a play()
     FFAppState().videoController =
         VideoPlayerController.file(File(widget.videoPath));
-
+    
     // Almacena el Future de inicialización para que FutureBuilder lo gestione.
     _initializeFuture = FFAppState().videoController!.initialize().then((_) {
       // Forzamos a pausar el video una vez inicializado
@@ -68,11 +69,40 @@ class _LocalVideoThumbnailState extends State<LocalVideoThumbnail> {
           return const SizedBox.shrink();
         }
 
-        // El video se mantiene en pausa.
+        // Envuelve el VideoPlayer en un GestureDetector para habilitar el scrubbing.
         return Center(
           child: AspectRatio(
             aspectRatio: FFAppState().videoController!.value.aspectRatio,
-            child: VideoPlayer(FFAppState().videoController!),
+            child: GestureDetector(
+              onHorizontalDragUpdate: (details) {
+                // Obtiene la posición actual del video.
+                final currentPosition =
+                    FFAppState().videoController!.value.position;
+
+                // Define un factor de sensibilidad (segundos por píxel).
+                const double sensitivity = 0.1;
+                // Calcula el cambio en milisegundos.
+                int deltaMilliseconds =
+                    (sensitivity * details.delta.dx * 1000).round();
+                Duration deltaDuration =
+                    Duration(milliseconds: deltaMilliseconds);
+
+                // Calcula la nueva posición sumando el delta.
+                Duration newPosition = currentPosition + deltaDuration;
+                
+                // Asegúrate de que la nueva posición esté dentro de los límites.
+                if (newPosition < Duration.zero) {
+                  newPosition = Duration.zero;
+                } else if (newPosition >
+                    FFAppState().videoController!.value.duration) {
+                  newPosition = FFAppState().videoController!.value.duration;
+                }
+                
+                // Actualiza la posición del video.
+                FFAppState().videoController!.seekTo(newPosition);
+              },
+              child: VideoPlayer(FFAppState().videoController!),
+            ),
           ),
         );
       },
