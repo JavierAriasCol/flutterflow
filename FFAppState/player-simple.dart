@@ -14,8 +14,6 @@
 // - El **`!`** se utiliza para **afirmar** que una variable nullable **no es nula** en ese momento.
 // - El **`?`** se utiliza para **realizar operaciones de forma segura** sobre una variable que puede ser nula, evitando errores si efectivamente lo es.
 
-import 'package:flutter/material.dart';
-
 import 'package:video_player/video_player.dart';
 import 'dart:io';
 
@@ -36,28 +34,26 @@ class LocalVideoThumbnail extends StatefulWidget {
 }
 
 class _LocalVideoThumbnailState extends State<LocalVideoThumbnail> {
+  Future<void>? _initializeFuture;
+  bool _hasStarted =
+      false; // Flag para garantizar que se llame a play() solo una vez
+
   @override
   void initState() {
     super.initState();
-    _initializeController();
-  }
+    // Asigna el controlador global sin llamar a play() aquí.
+    FFAppState().videoController =
+        VideoPlayerController.file(File(widget.videoPath))
+          ..setLooping(true)
+          ..setVolume(0);
 
-  void _initializeController() {
-    // Se asigna el controlador de video global en FFAppState
-    FFAppState().videoController = VideoPlayerController.file(File(widget.videoPath))
-      ..setLooping(true)
-      ..setVolume(0)
-      ..initialize().then((_) {
-        if (mounted) {
-          setState(() {});
-          FFAppState().videoController?.play();
-        }
-      });
+    // Almacena el Future de inicialización para que FutureBuilder lo gestione.
+    _initializeFuture = FFAppState().videoController!.initialize();
   }
 
   @override
   void dispose() {
-    // Se libera el controlador global y se establece a null
+    // Libera el controlador global y lo establece en null.
     FFAppState().videoController?.dispose();
     FFAppState().videoController = null;
     super.dispose();
@@ -65,16 +61,27 @@ class _LocalVideoThumbnailState extends State<LocalVideoThumbnail> {
 
   @override
   Widget build(BuildContext context) {
-    // Se utiliza el controlador global para construir la UI
-    if (FFAppState().videoController == null || !FFAppState().videoController!.value.isInitialized) {
-      return const SizedBox.shrink();
-    }
+    return FutureBuilder(
+      future: _initializeFuture,
+      builder: (context, snapshot) {
+        // Mientras no se complete la inicialización, no se muestra nada.
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const SizedBox.shrink();
+        }
 
-    return Center(
-      child: AspectRatio(
-        aspectRatio: FFAppState().videoController!.value.aspectRatio,
-        child: VideoPlayer(FFAppState().videoController!),
-      ),
+        // Una vez inicializado, se llama a play() una sola vez.
+        if (!_hasStarted) {
+          FFAppState().videoController!.play();
+          _hasStarted = true;
+        }
+
+        return Center(
+          child: AspectRatio(
+            aspectRatio: FFAppState().videoController!.value.aspectRatio,
+            child: VideoPlayer(FFAppState().videoController!),
+          ),
+        );
+      },
     );
   }
 }
