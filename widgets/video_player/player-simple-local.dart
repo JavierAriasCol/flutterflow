@@ -1,7 +1,3 @@
-import 'package:flutter/material.dart';
-// Begin custom widget code
-// DO NOT REMOVE OR MODIFY THE CODE ABOVE!
-
 import 'package:video_player/video_player.dart';
 import 'dart:io';
 
