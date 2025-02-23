@@ -131,7 +131,10 @@ class _LocalVideoThumbnailState extends State<LocalVideoThumbnail> {
                       horizontal: 6,
                       vertical: 4,
                     ),
-                    color: Colors.black54,
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                     child: ValueListenableBuilder<VideoPlayerValue>(
                       valueListenable: FFAppState().videoController!,
                       builder: (context, value, child) {
