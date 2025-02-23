@@ -23,11 +23,13 @@ class LocalVideoThumbnail extends StatefulWidget {
     this.width,
     this.height,
     required this.videoPath,
+    required this.borderVideo,
   });
 
   final double? width;
   final double? height;
   final String videoPath;
+  final double borderVideo;
 
   @override
   State<LocalVideoThumbnail> createState() => _LocalVideoThumbnailState();
@@ -87,39 +89,40 @@ class _LocalVideoThumbnailState extends State<LocalVideoThumbnail> {
             aspectRatio: FFAppState().videoController!.value.aspectRatio,
             child: Stack(
               children: [
-                // Gesto para scrubbing (avanzar/retroceder arrastrando horizontalmente).
-                GestureDetector(
-                  onHorizontalDragUpdate: (details) {
-                    // Posición actual del video.
-                    final currentPosition =
-                        FFAppState().videoController!.value.position;
+                // Video con esquinas redondeadas y scrubbing
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(widget.borderVideo),
+                  child: GestureDetector(
+                    onHorizontalDragUpdate: (details) {
+                      // Obtiene la posición actual del video.
+                      final currentPosition =
+                          FFAppState().videoController!.value.position;
+                      
+                      // Define un factor de sensibilidad (segundos por píxel).
+                      const double sensitivity = 0.1;
+                      // Calcula el cambio en milisegundos.
+                      int deltaMs =
+                          (sensitivity * details.delta.dx * 1000).round();
+                      final deltaDuration = Duration(milliseconds: deltaMs);
 
-                    // Factor de sensibilidad (segundos por píxel).
-                    const double sensitivity = 0.1;
-                    // Delta en milisegundos.
-                    int deltaMs =
-                        (sensitivity * details.delta.dx * 1000).round();
-                    final deltaDuration = Duration(milliseconds: deltaMs);
+                      // Calcula la nueva posición sumando/restando el delta.
+                      Duration newPosition = currentPosition + deltaDuration;
 
-                    // Calcula la nueva posición sumando/restando el delta.
-                    Duration newPosition = currentPosition + deltaDuration;
+                      // Limita la nueva posición para que no se salga de los límites.
+                      if (newPosition < Duration.zero) {
+                        newPosition = Duration.zero;
+                      } else if (newPosition >
+                          FFAppState().videoController!.value.duration) {
+                        newPosition = FFAppState().videoController!.value.duration;
+                      }
 
-                    // Asegura que no salga de los límites (0 <-> duración total).
-                    if (newPosition < Duration.zero) {
-                      newPosition = Duration.zero;
-                    } else if (newPosition >
-                        FFAppState().videoController!.value.duration) {
-                      newPosition =
-                          FFAppState().videoController!.value.duration;
-                    }
-
-                    // Actualiza la posición del video.
-                    FFAppState().videoController!.seekTo(newPosition);
-                  },
-                  child: VideoPlayer(FFAppState().videoController!),
+                      // Actualiza la posición del video.
+                      FFAppState().videoController!.seekTo(newPosition);
+                    },
+                    child: VideoPlayer(FFAppState().videoController!),
+                  ),
                 ),
-
-                // Timestamp en la esquina inferior izquierda.
+                // Visualización del timestamp en la esquina inferior izquierda.
                 Positioned(
                   bottom: 8,
                   left: 8,
