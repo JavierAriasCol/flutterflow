@@ -19,24 +19,22 @@ class LocalVideoCompress extends StatefulWidget {
 
 class _LocalVideoCompressState extends State<LocalVideoCompress> {
   VideoPlayerController? controller;
-
+  Future<void>? _initializeFuture;
+  bool _hasStarted =
+      false; // Flag para garantizar que se llame a play() solo una vez
+  
   @override
   void initState() {
     super.initState();
-    _initializeController();
-  }
-
-  void _initializeController() {
+    // Asigna el controlador global sin llamar a play() aquí.
     controller = VideoPlayerController.file(File(widget.videoPath))
       ..setLooping(true)
-      ..setVolume(0)
-      ..initialize().then((_) {
-        if (mounted) {
-          setState(() {});
-          controller?.play();
-        }
-      });
+      ..setVolume(0);
+
+    // Almacena el Future de inicialización para que FutureBuilder lo gestione.
+    _initializeFuture = controller!.initialize();
   }
+
 
   @override
   void dispose() {
@@ -44,17 +42,29 @@ class _LocalVideoCompressState extends State<LocalVideoCompress> {
     super.dispose();
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
-    if (controller == null || !controller!.value.isInitialized) {
-      return const SizedBox.shrink();
-    }
+    return FutureBuilder(
+      future: _initializeFuture,
+      builder: (context, snapshot) {
+        // Mientras no se complete la inicialización, no se muestra nada.
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const SizedBox.shrink();
+        }
 
-    return Center(
-      child: AspectRatio(
-        aspectRatio: controller!.value.aspectRatio,
-        child: VideoPlayer(controller!),
-      ),
+        // Una vez inicializado, se llama a play() una sola vez.
+        if (!_hasStarted) {
+          controller!.play();
+          _hasStarted = true;
+        }
+
+        return Center(
+          child: AspectRatio(
+            aspectRatio: controller!.value.aspectRatio,
+            child: VideoPlayer(controller!),
+          ),
+        );
+      },
     );
   }
 }
