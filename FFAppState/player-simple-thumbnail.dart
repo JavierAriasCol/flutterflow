@@ -89,16 +89,25 @@ class _LocalVideoThumbnailState extends State<LocalVideoThumbnail> {
             aspectRatio: FFAppState().videoController!.value.aspectRatio,
             child: Stack(
               children: [
-                // Video con esquinas redondeadas y scrubbing
+                // Video con esquinas redondeadas, scrubbing y "one tap" para play/pause
                 ClipRRect(
                   borderRadius: BorderRadius.circular(widget.borderVideo),
                   child: GestureDetector(
+                    // Alterna reproducción al tocar
+                    onTap: () {
+                      if (FFAppState().videoController!.value.isPlaying) {
+                        FFAppState().videoController!.pause();
+                      } else {
+                        FFAppState().videoController!.play();
+                      }
+                    },
+                    // Scrubbing: desplaza el timestamp del video al arrastrar horizontalmente
                     onHorizontalDragUpdate: (details) {
                       // Obtiene la posición actual del video.
                       final currentPosition =
                           FFAppState().videoController!.value.position;
-                      
-                      // Define un factor de sensibilidad (segundos por píxel).
+
+                      // Factor de sensibilidad (segundos por píxel).
                       const double sensitivity = 0.1;
                       // Calcula el cambio en milisegundos.
                       int deltaMs =
@@ -108,12 +117,13 @@ class _LocalVideoThumbnailState extends State<LocalVideoThumbnail> {
                       // Calcula la nueva posición sumando/restando el delta.
                       Duration newPosition = currentPosition + deltaDuration;
 
-                      // Limita la nueva posición para que no se salga de los límites.
+                      // Limita la nueva posición a los límites válidos.
                       if (newPosition < Duration.zero) {
                         newPosition = Duration.zero;
                       } else if (newPosition >
                           FFAppState().videoController!.value.duration) {
-                        newPosition = FFAppState().videoController!.value.duration;
+                        newPosition =
+                            FFAppState().videoController!.value.duration;
                       }
 
                       // Actualiza la posición del video.
@@ -128,7 +138,7 @@ class _LocalVideoThumbnailState extends State<LocalVideoThumbnail> {
                   left: 8,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
+                      horizontal: 4,
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
@@ -145,6 +155,24 @@ class _LocalVideoThumbnailState extends State<LocalVideoThumbnail> {
                         );
                       },
                     ),
+                  ),
+                ),
+                // Ícono "play" en la esquina inferior derecha (solo se muestra cuando el video está pausado)
+                Positioned(
+                  bottom: 8,
+                  right: 8,
+                  child: ValueListenableBuilder<VideoPlayerValue>(
+                    valueListenable: FFAppState().videoController!,
+                    builder: (context, value, child) {
+                      if (value.isPlaying) {
+                        return const SizedBox.shrink();
+                      }
+                      return const Icon(
+                        Icons.play_arrow,
+                        color: Colors.white,
+                        size: 20,
+                      );
+                    },
                   ),
                 ),
               ],
