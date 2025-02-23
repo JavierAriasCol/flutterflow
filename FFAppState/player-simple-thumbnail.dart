@@ -14,9 +14,8 @@
 // - El **`!`** se utiliza para **afirmar** que una variable nullable **no es nula** en ese momento.
 // - El **`?`** se utiliza para **realizar operaciones de forma segura** sobre una variable que puede ser nula, evitando errores si efectivamente lo es.
 
-import 'package:video_player/video_player.dart';
 import 'dart:io';
-import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 
 class LocalVideoThumbnail extends StatefulWidget {
   const LocalVideoThumbnail({
@@ -40,13 +39,12 @@ class _LocalVideoThumbnailState extends State<LocalVideoThumbnail> {
   @override
   void initState() {
     super.initState();
-    // Asigna el controlador global sin llamar a play()
+    // Asigna el controlador global sin reproducir el video.
     FFAppState().videoController =
         VideoPlayerController.file(File(widget.videoPath));
-    
-    // Almacena el Future de inicialización para que FutureBuilder lo gestione.
+
+    // Inicializa el controlador y pausa el video al terminar.
     _initializeFuture = FFAppState().videoController!.initialize().then((_) {
-      // Forzamos a pausar el video una vez inicializado
       FFAppState().videoController!.pause();
     });
   }
@@ -59,6 +57,13 @@ class _LocalVideoThumbnailState extends State<LocalVideoThumbnail> {
     super.dispose();
   }
 
+  // Función auxiliar para formatear la duración (min:seg).
+  String _formatDuration(Duration position) {
+    final minutes = position.inMinutes;
+    final seconds = position.inSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder(
@@ -69,39 +74,67 @@ class _LocalVideoThumbnailState extends State<LocalVideoThumbnail> {
           return const SizedBox.shrink();
         }
 
-        // Envuelve el VideoPlayer en un GestureDetector para habilitar el scrubbing.
+        // Construye el reproductor en un Stack para superponer el timestamp.
         return Center(
           child: AspectRatio(
             aspectRatio: FFAppState().videoController!.value.aspectRatio,
-            child: GestureDetector(
-              onHorizontalDragUpdate: (details) {
-                // Obtiene la posición actual del video.
-                final currentPosition =
-                    FFAppState().videoController!.value.position;
+            child: Stack(
+              children: [
+                // Gesto para scrubbing (avanzar/retroceder arrastrando horizontalmente).
+                GestureDetector(
+                  onHorizontalDragUpdate: (details) {
+                    // Posición actual del video.
+                    final currentPosition =
+                        FFAppState().videoController!.value.position;
 
-                // Define un factor de sensibilidad (segundos por píxel).
-                const double sensitivity = 0.1;
-                // Calcula el cambio en milisegundos.
-                int deltaMilliseconds =
-                    (sensitivity * details.delta.dx * 1000).round();
-                Duration deltaDuration =
-                    Duration(milliseconds: deltaMilliseconds);
+                    // Factor de sensibilidad (segundos por píxel).
+                    const double sensitivity = 0.1;
+                    // Delta en milisegundos.
+                    int deltaMs =
+                        (sensitivity * details.delta.dx * 1000).round();
+                    final deltaDuration = Duration(milliseconds: deltaMs);
 
-                // Calcula la nueva posición sumando el delta.
-                Duration newPosition = currentPosition + deltaDuration;
-                
-                // Asegúrate de que la nueva posición esté dentro de los límites.
-                if (newPosition < Duration.zero) {
-                  newPosition = Duration.zero;
-                } else if (newPosition >
-                    FFAppState().videoController!.value.duration) {
-                  newPosition = FFAppState().videoController!.value.duration;
-                }
-                
-                // Actualiza la posición del video.
-                FFAppState().videoController!.seekTo(newPosition);
-              },
-              child: VideoPlayer(FFAppState().videoController!),
+                    // Calcula la nueva posición sumando/restando el delta.
+                    Duration newPosition = currentPosition + deltaDuration;
+
+                    // Asegura que no salga de los límites (0 <-> duración total).
+                    if (newPosition < Duration.zero) {
+                      newPosition = Duration.zero;
+                    } else if (newPosition >
+                        FFAppState().videoController!.value.duration) {
+                      newPosition =
+                          FFAppState().videoController!.value.duration;
+                    }
+
+                    // Actualiza la posición del video.
+                    FFAppState().videoController!.seekTo(newPosition);
+                  },
+                  child: VideoPlayer(FFAppState().videoController!),
+                ),
+
+                // Timestamp en la esquina inferior izquierda.
+                Positioned(
+                  bottom: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 4,
+                    ),
+                    color: Colors.black54,
+                    child: ValueListenableBuilder<VideoPlayerValue>(
+                      valueListenable: FFAppState().videoController!,
+                      builder: (context, value, child) {
+                        final currentPos = value.position;
+                        return Text(
+                          _formatDuration(currentPos),
+                          style: const TextStyle(color: Colors.white),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         );
