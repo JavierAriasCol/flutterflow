@@ -7,11 +7,13 @@ class LocalVideoCompress extends StatefulWidget {
     this.width,
     this.height,
     required this.videoPath,
+    required this.borderVideo,
   });
 
   final double? width;
   final double? height;
   final String videoPath;
+  final double borderVideo;
 
   @override
   State<LocalVideoCompress> createState() => _LocalVideoCompressState();
@@ -61,8 +63,15 @@ class _LocalVideoCompressState extends State<LocalVideoCompress> {
         return Center(
           child: AspectRatio(
             aspectRatio: controller!.value.aspectRatio,
-            child: VideoPlayer(controller!),
-          ),
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(widget.borderVideo),
+                  child: VideoPlayer(controller!),
+                ),
+              ],
+            ),
+          )
         );
       },
     );
