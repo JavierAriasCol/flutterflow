@@ -35,18 +35,19 @@ class LocalVideoThumbnail extends StatefulWidget {
 
 class _LocalVideoThumbnailState extends State<LocalVideoThumbnail> {
   Future<void>? _initializeFuture;
+  bool _hasStarted = false;
 
   @override
   void initState() {
     super.initState();
     // Asigna el controlador global sin reproducir el video.
     FFAppState().videoController =
-        VideoPlayerController.file(File(widget.videoPath));
+        VideoPlayerController.file(File(widget.videoPath))
+          ..setLooping(true)
+          ..setVolume(0);
 
-    // Inicializa el controlador y pausa el video al terminar.
-    _initializeFuture = FFAppState().videoController!.initialize().then((_) {
-      FFAppState().videoController!.pause();
-    });
+    // Almacena el Future de inicialización para que FutureBuilder lo gestione.
+    _initializeFuture = FFAppState().videoController!.initialize();
   }
 
   @override
@@ -72,6 +73,12 @@ class _LocalVideoThumbnailState extends State<LocalVideoThumbnail> {
         // Mientras no se complete la inicialización, no se muestra nada.
         if (snapshot.connectionState != ConnectionState.done) {
           return const SizedBox.shrink();
+        }
+
+        // Una vez inicializado, se llama a play() una sola vez.
+        if (!_hasStarted) {
+          FFAppState().videoController!.play();
+          _hasStarted = true;
         }
 
         // Construye el reproductor en un Stack para superponer el timestamp.
