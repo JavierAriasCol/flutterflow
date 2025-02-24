@@ -37,7 +37,6 @@ class _LocalVideoCompressState extends State<LocalVideoCompress> {
     _initializeFuture = controller!.initialize();
   }
 
-
   @override
   void dispose() {
     controller?.dispose();
