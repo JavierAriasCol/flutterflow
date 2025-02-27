@@ -11,6 +11,7 @@ Future<bool> compressVideo(String videoPath, int indexState) async {
     FFAppState().uNewTread[indexState].videoUploaded.isCompressed = false;
     FFAppState().uNewTread[indexState].videoUploaded.isCompressing = true;
 
+    /* El usuario no puede subir otro video */
     FFAppState().isCompressingVideo = true;
   });
 
@@ -28,7 +29,7 @@ Future<bool> compressVideo(String videoPath, int indexState) async {
     final info = await VideoCompress.compressVideo(
       videoPath,
       quality: VideoQuality.Res960x540Quality,
-      deleteOrigin: false,
+      deleteOrigin: true,
     );
 
     // Verificar si la compresión fue exitosa
@@ -39,10 +40,12 @@ Future<bool> compressVideo(String videoPath, int indexState) async {
         FFAppState().uNewTread[indexState].videoUploaded.statusText =
             "Falló la carga del video";
         FFAppState().uNewTread[indexState].videoUploaded.uploadProgress = 0.0;
+        // Se podría asignar null a videoPath si es necesario
         FFAppState().uNewTread[indexState].videoUploaded.videoPath = null;
         FFAppState().uNewTread[indexState].videoUploaded.isCompressed = false;
         FFAppState().uNewTread[indexState].videoUploaded.isCompressing = false;
 
+        /* El usuario puede subir otro video */
         FFAppState().isCompressingVideo = false;
       });
       return false;
@@ -58,18 +61,30 @@ Future<bool> compressVideo(String videoPath, int indexState) async {
       FFAppState().uNewTread[indexState].videoUploaded.isCompressed = true;
       FFAppState().uNewTread[indexState].videoUploaded.isCompressing = false;
 
+      /* El usuario puede subir otro video */
       FFAppState().isCompressingVideo = false;
     });
 
     return true;
-  } finally {
-    // Asegurarse de desuscribirse, sin importar el resultado o si ocurrió alguna excepción.
-    subscription.unsubscribe();
+  } on Exception catch (e) {
+    // Manejo de excepción: registrar error y actualizar estado
+    print("Error al comprimir video: $e");
     FFAppState().update(() {
+      FFAppState().uNewTread[indexState].videoUploaded.statusText =
+          "Error en la compresión";
       FFAppState().uNewTread[indexState].videoUploaded.uploadProgress = 0.0;
+      // Se podría asignar null a videoPath si es necesario
+      FFAppState().uNewTread[indexState].videoUploaded.videoPath = null;
+      FFAppState().uNewTread[indexState].videoUploaded.isCompressed = false;
       FFAppState().uNewTread[indexState].videoUploaded.isCompressing = false;
 
+      /* El usuario puede subir otro video */
       FFAppState().isCompressingVideo = false;
     });
+    return false;
+  } finally {
+    // Asegurarse de desuscribirse sin sobrescribir información importante
+    subscription.unsubscribe();
+    // Se evita actualizar el estado en finally para no interferir con las actualizaciones previas.
   }
 }
