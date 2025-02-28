@@ -1,6 +1,10 @@
 import 'dart:io';
-import 'package:video_compress/video_compress.dart';
+import 'dart:convert';
 import 'dart:async';
+import 'package:video_compress/video_compress.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:image/image.dart' as img;
+import 'package:blurhash_dart/blurhash_dart.dart';
 
 Future<bool> compressVideo(String videoPath, int indexState) async {
   // Actualizar el estado a "Cargando Video" para el elemento en la posición indexState
@@ -10,7 +14,7 @@ Future<bool> compressVideo(String videoPath, int indexState) async {
     FFAppState().uNewTread[indexState].videoUploaded.uploadProgress = 0.0;
     FFAppState().uNewTread[indexState].videoUploaded.isCompressed = false;
     FFAppState().uNewTread[indexState].videoUploaded.isCompressing = true;
-
+    
     /* El usuario no puede subir otro video */
     FFAppState().isCompressingVideo = true;
   });
@@ -44,13 +48,35 @@ Future<bool> compressVideo(String videoPath, int indexState) async {
         FFAppState().uNewTread[indexState].videoUploaded.videoPath = null;
         FFAppState().uNewTread[indexState].videoUploaded.isCompressed = false;
         FFAppState().uNewTread[indexState].videoUploaded.isCompressing = false;
-
+        
         /* El usuario puede subir otro video */
         FFAppState().isCompressingVideo = false;
       });
       return false;
     }
-
+    
+    // Capturar el thumbnail usando el videoPath comprimido
+    final Uint8List? thumbnailData = await VideoThumbnail.thumbnailData(
+      video: compressedVideoPath,
+      imageFormat: ImageFormat.WEBP,
+      timeMs: 1000, // captura en el segundo 1
+      quality: 75,
+    );
+    
+    String? iniThumbnail;
+    String? iniBlur;
+    if (thumbnailData != null) {
+      // Convertir la miniatura a Base64.
+      iniThumbnail = base64Encode(thumbnailData);
+      
+      // Decodificar la imagen para generar el Blur Hash.
+      final decodedImage = img.decodeImage(thumbnailData);
+      if (decodedImage != null) {
+        final blurHash = BlurHash.encode(decodedImage, numCompX: 4, numCompY: 3);
+        iniBlur = blurHash.hash;
+      }
+    }
+    
     // Actualizar el estado para indicar que la compresión se completó
     FFAppState().update(() {
       FFAppState().uNewTread[indexState].videoUploaded.statusText =
@@ -60,11 +86,14 @@ Future<bool> compressVideo(String videoPath, int indexState) async {
           compressedVideoPath;
       FFAppState().uNewTread[indexState].videoUploaded.isCompressed = true;
       FFAppState().uNewTread[indexState].videoUploaded.isCompressing = false;
-
+      // Actualizamos el thumbnail y el Blur Hash usando los valores obtenidos
+      FFAppState().uNewTread[indexState].videoUploaded.iniThumbnail = iniThumbnail;
+      FFAppState().uNewTread[indexState].videoUploaded.iniBlur = iniBlur;
+      
       /* El usuario puede subir otro video */
       FFAppState().isCompressingVideo = false;
     });
-
+    
     return true;
   } on Exception catch (e) {
     // Manejo de excepción: registrar error y actualizar estado
@@ -77,7 +106,7 @@ Future<bool> compressVideo(String videoPath, int indexState) async {
       FFAppState().uNewTread[indexState].videoUploaded.videoPath = null;
       FFAppState().uNewTread[indexState].videoUploaded.isCompressed = false;
       FFAppState().uNewTread[indexState].videoUploaded.isCompressing = false;
-
+      
       /* El usuario puede subir otro video */
       FFAppState().isCompressingVideo = false;
     });
