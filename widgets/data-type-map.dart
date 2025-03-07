@@ -12,6 +12,7 @@ export 'package:google_maps_flutter/google_maps_flutter.dart' hide LatLng;
 export '/flutter_flow/lat_lng.dart' show LatLng;
 import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart';
 import 'dart:ui';
+import 'dart:convert';
 
 class DataTypeMap extends StatefulWidget {
   const DataTypeMap({
@@ -72,14 +73,14 @@ class _DataTypeMapState extends State<DataTypeMap> {
   @override
   void didUpdateWidget(DataTypeMap oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
+
     // Actualizar centro si cambian las coordenadas
     if (oldWidget.centerLatitude != widget.centerLatitude ||
         oldWidget.centerLongitude != widget.centerLongitude) {
       _center = google_maps_flutter.LatLng(
           widget.centerLatitude, widget.centerLongitude);
     }
-    
+
     // Recargar marcadores si cambian los lugares
     if (oldWidget.places != widget.places) {
       _loadMarkerIcons();
@@ -102,11 +103,12 @@ class _DataTypeMapState extends State<DataTypeMap> {
 
     for (String? path in uniqueIconPaths) {
       if (path == null || path.isEmpty) continue;
-      
+
       try {
         Uint8List? imageData = await _loadNetworkImage(path);
         if (imageData != null) {
-          _customIcons[path] = await google_maps_flutter.BitmapDescriptor.fromBytes(imageData);
+          _customIcons[path] =
+              await google_maps_flutter.BitmapDescriptor.fromBytes(imageData);
         }
       } catch (e) {
         print('Error loading marker icon: $e');
@@ -121,7 +123,7 @@ class _DataTypeMapState extends State<DataTypeMap> {
       final completer = Completer<ImageInfo>();
       final image = NetworkImage(path);
       final imageStream = image.resolve(const ImageConfiguration());
-      
+
       imageStream.addListener(ImageStreamListener(
         (ImageInfo info, bool _) {
           if (!completer.isCompleted) {
@@ -134,16 +136,17 @@ class _DataTypeMapState extends State<DataTypeMap> {
           }
         },
       ));
-      
+
       // Timeout para evitar esperas infinitas
       Future.delayed(const Duration(seconds: 15), () {
         if (!completer.isCompleted) {
           completer.completeError(TimeoutException('Image loading timed out'));
         }
       });
-      
+
       final imageInfo = await completer.future;
-      final byteData = await imageInfo.image.toByteData(format: ImageByteFormat.png);
+      final byteData =
+          await imageInfo.image.toByteData(format: ImageByteFormat.png);
       return byteData?.buffer.asUint8List();
     } catch (e) {
       print('Error loading network image: $e');
@@ -170,21 +173,20 @@ class _DataTypeMapState extends State<DataTypeMap> {
 
     for (int i = 0; i < widget.places!.length; i++) {
       var place = widget.places![i];
-      
+
       // Validar coordenadas
       if (place.latitude == null || place.longitude == null) {
         continue; // Skip invalid coordinates
       }
 
       // Crear directamente el LatLng de Google Maps
-      final position = google_maps_flutter.LatLng(
-        place.latitude!, 
-        place.longitude!
-      );
+      final position =
+          google_maps_flutter.LatLng(place.latitude!, place.longitude!);
 
       // Obtener icono o usar el predeterminado
       final icon = place.imageUrl != null && place.imageUrl!.isNotEmpty
-          ? _customIcons[place.imageUrl] ?? google_maps_flutter.BitmapDescriptor.defaultMarker
+          ? _customIcons[place.imageUrl] ??
+              google_maps_flutter.BitmapDescriptor.defaultMarker
           : google_maps_flutter.BitmapDescriptor.defaultMarker;
 
       final marker = google_maps_flutter.Marker(
@@ -198,7 +200,7 @@ class _DataTypeMapState extends State<DataTypeMap> {
 
       markers.add(marker);
     }
-    
+
     return markers;
   }
 
@@ -212,6 +214,151 @@ class _DataTypeMapState extends State<DataTypeMap> {
       compassEnabled: widget.showCompass,
       mapToolbarEnabled: widget.showMapToolbar,
       trafficEnabled: widget.showTraffic,
+      mapType: google_maps_flutter.MapType.normal, // Mantén este tipo de mapa
+      style: json.encode([
+        {
+          "elementType": "geometry",
+          "stylers": [
+            {"color": "#212121"}
+          ]
+        },
+        {
+          "elementType": "labels.icon",
+          "stylers": [
+            {"visibility": "off"}
+          ]
+        },
+        {
+          "elementType": "labels.text.fill",
+          "stylers": [
+            {"color": "#757575"}
+          ]
+        },
+        {
+          "elementType": "labels.text.stroke",
+          "stylers": [
+            {"color": "#212121"}
+          ]
+        },
+        {
+          "featureType": "administrative",
+          "elementType": "geometry",
+          "stylers": [
+            {"color": "#757575"}
+          ]
+        },
+        {
+          "featureType": "administrative.country",
+          "elementType": "labels.text.fill",
+          "stylers": [
+            {"color": "#9e9e9e"}
+          ]
+        },
+        {
+          "featureType": "administrative.land_parcel",
+          "stylers": [
+            {"visibility": "off"}
+          ]
+        },
+        {
+          "featureType": "administrative.locality",
+          "elementType": "labels.text.fill",
+          "stylers": [
+            {"color": "#bdbdbd"}
+          ]
+        },
+        {
+          "featureType": "poi",
+          "elementType": "labels.text.fill",
+          "stylers": [
+            {"color": "#757575"}
+          ]
+        },
+        {
+          "featureType": "poi.park",
+          "elementType": "geometry",
+          "stylers": [
+            {"color": "#181818"}
+          ]
+        },
+        {
+          "featureType": "poi.park",
+          "elementType": "labels.text.fill",
+          "stylers": [
+            {"color": "#616161"}
+          ]
+        },
+        {
+          "featureType": "poi.park",
+          "elementType": "labels.text.stroke",
+          "stylers": [
+            {"color": "#1b1b1b"}
+          ]
+        },
+        {
+          "featureType": "road",
+          "elementType": "geometry.fill",
+          "stylers": [
+            {"color": "#2c2c2c"}
+          ]
+        },
+        {
+          "featureType": "road",
+          "elementType": "labels.text.fill",
+          "stylers": [
+            {"color": "#8a8a8a"}
+          ]
+        },
+        {
+          "featureType": "road.arterial",
+          "elementType": "geometry",
+          "stylers": [
+            {"color": "#373737"}
+          ]
+        },
+        {
+          "featureType": "road.highway",
+          "elementType": "geometry",
+          "stylers": [
+            {"color": "#3c3c3c"}
+          ]
+        },
+        {
+          "featureType": "road.highway.controlled_access",
+          "elementType": "geometry",
+          "stylers": [
+            {"color": "#4e4e4e"}
+          ]
+        },
+        {
+          "featureType": "road.local",
+          "elementType": "labels.text.fill",
+          "stylers": [
+            {"color": "#616161"}
+          ]
+        },
+        {
+          "featureType": "transit",
+          "elementType": "labels.text.fill",
+          "stylers": [
+            {"color": "#757575"}
+          ]
+        },
+        {
+          "featureType": "water",
+          "elementType": "geometry",
+          "stylers": [
+            {"color": "#000000"}
+          ]
+        },
+        {
+          "featureType": "water",
+          "elementType": "labels.text.fill",
+          "stylers": [
+            {"color": "#3d3d3d"}
+          ]
+        }
+      ]),
       initialCameraPosition: google_maps_flutter.CameraPosition(
         target: _center,
         zoom: widget.defaultZoom,
