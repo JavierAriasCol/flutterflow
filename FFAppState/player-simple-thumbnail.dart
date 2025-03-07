@@ -158,19 +158,32 @@ class _LocalVideoThumbnailState extends State<LocalVideoThumbnail> {
                   ),
                 ),
                 // Ícono "play" en la esquina inferior derecha (solo se muestra cuando el video está pausado)
-                Positioned(
-                  bottom: 8,
-                  right: 8,
+                Positioned.fill(
                   child: ValueListenableBuilder<VideoPlayerValue>(
                     valueListenable: FFAppState().videoController!,
                     builder: (context, value, child) {
-                      if (value.isPlaying) {
-                        return const SizedBox.shrink();
-                      }
-                      return const Icon(
-                        Icons.play_arrow,
-                        color: Colors.white,
-                        size: 20,
+                      return AnimatedOpacity(
+                        opacity: !value.isPlaying ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 150),
+                        child: GestureDetector(
+                          onTap: () {
+                            FFAppState().videoController!.play();
+                          },
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(6.0),
+                              decoration: const BoxDecoration(
+                                color: Colors.black54,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.play_arrow,
+                                size: 25,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
                       );
                     },
                   ),
