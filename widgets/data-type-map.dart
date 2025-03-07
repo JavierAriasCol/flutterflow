@@ -56,9 +56,6 @@ class _DataTypeMapState extends State<DataTypeMap> {
 
   late google_maps_flutter.LatLng _center;
 
-  final String _httpsPrefix = "https";
-  final String _imagesPath = "assets/images/";
-
   @override
   void initState() {
     super.initState();
@@ -107,16 +104,9 @@ class _DataTypeMapState extends State<DataTypeMap> {
       if (path == null || path.isEmpty) continue;
       
       try {
-        if (path.contains(_httpsPrefix)) {
-          Uint8List? imageData = await _loadNetworkImage(path);
-          if (imageData != null) {
-            _customIcons[path] = await google_maps_flutter.BitmapDescriptor.fromBytes(imageData);
-          }
-        } else {
-          _customIcons[path] = await google_maps_flutter.BitmapDescriptor.fromAssetImage(
-            const ImageConfiguration(devicePixelRatio: 2.5),
-            "$_imagesPath$path",
-          );
+        Uint8List? imageData = await _loadNetworkImage(path);
+        if (imageData != null) {
+          _customIcons[path] = await google_maps_flutter.BitmapDescriptor.fromBytes(imageData);
         }
       } catch (e) {
         print('Error loading marker icon: $e');
