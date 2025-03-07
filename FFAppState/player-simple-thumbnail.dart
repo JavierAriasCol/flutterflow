@@ -87,108 +87,103 @@ class _LocalVideoThumbnailState extends State<LocalVideoThumbnail> {
         return Center(
           child: AspectRatio(
             aspectRatio: FFAppState().videoController!.value.aspectRatio,
-            child: Stack(
-              children: [
-                // Video con esquinas redondeadas, scrubbing y "one tap" para play/pause
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(widget.borderVideo),
-                  child: GestureDetector(
-                    // Alterna reproducción al tocar
-                    onTap: () {
-                      if (FFAppState().videoController!.value.isPlaying) {
-                        FFAppState().videoController!.pause();
-                      } else {
-                        FFAppState().videoController!.play();
-                      }
-                    },
-                    // Scrubbing: desplaza el timestamp del video al arrastrar horizontalmente
-                    onHorizontalDragUpdate: (details) {
-                      // Obtiene la posición actual del video.
-                      final currentPosition =
-                          FFAppState().videoController!.value.position;
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(widget.borderVideo),
+              child: GestureDetector(
+                // Alterna reproducción al tocar - ahora cubre todo el área
+                onTap: () {
+                  if (FFAppState().videoController!.value.isPlaying) {
+                    FFAppState().videoController!.pause();
+                  } else {
+                    FFAppState().videoController!.play();
+                  }
+                },
+                // Scrubbing: desplaza el timestamp del video al arrastrar horizontalmente
+                onHorizontalDragUpdate: (details) {
+                  // Obtiene la posición actual del video.
+                  final currentPosition =
+                      FFAppState().videoController!.value.position;
 
-                      // Factor de sensibilidad (segundos por píxel).
-                      const double sensitivity = 0.1;
-                      // Calcula el cambio en milisegundos.
-                      int deltaMs =
-                          (sensitivity * details.delta.dx * 1000).round();
-                      final deltaDuration = Duration(milliseconds: deltaMs);
+                  // Factor de sensibilidad (segundos por píxel).
+                  const double sensitivity = 0.1;
+                  // Calcula el cambio en milisegundos.
+                  int deltaMs = (sensitivity * details.delta.dx * 1000).round();
+                  final deltaDuration = Duration(milliseconds: deltaMs);
 
-                      // Calcula la nueva posición sumando/restando el delta.
-                      Duration newPosition = currentPosition + deltaDuration;
+                  // Calcula la nueva posición sumando/restando el delta.
+                  Duration newPosition = currentPosition + deltaDuration;
 
-                      // Limita la nueva posición a los límites válidos.
-                      if (newPosition < Duration.zero) {
-                        newPosition = Duration.zero;
-                      } else if (newPosition >
-                          FFAppState().videoController!.value.duration) {
-                        newPosition =
-                            FFAppState().videoController!.value.duration;
-                      }
+                  // Limita la nueva posición a los límites válidos.
+                  if (newPosition < Duration.zero) {
+                    newPosition = Duration.zero;
+                  } else if (newPosition >
+                      FFAppState().videoController!.value.duration) {
+                    newPosition = FFAppState().videoController!.value.duration;
+                  }
 
-                      // Actualiza la posición del video.
-                      FFAppState().videoController!.seekTo(newPosition);
-                    },
-                    child: VideoPlayer(FFAppState().videoController!),
-                  ),
-                ),
-                // Visualización del timestamp en la esquina inferior izquierda.
-                Positioned(
-                  bottom: 8,
-                  left: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: ValueListenableBuilder<VideoPlayerValue>(
-                      valueListenable: FFAppState().videoController!,
-                      builder: (context, value, child) {
-                        final currentPos = value.position;
-                        return Text(
-                          _formatDuration(currentPos),
-                          style: const TextStyle(color: Colors.white),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                // Ícono "play" en la esquina inferior derecha (solo se muestra cuando el video está pausado)
-                Positioned.fill(
-                  child: ValueListenableBuilder<VideoPlayerValue>(
-                    valueListenable: FFAppState().videoController!,
-                    builder: (context, value, child) {
-                      return AnimatedOpacity(
-                        opacity: !value.isPlaying ? 1.0 : 0.0,
-                        duration: const Duration(milliseconds: 150),
-                        child: GestureDetector(
-                          onTap: () {
-                            FFAppState().videoController!.play();
+                  // Actualiza la posición del video.
+                  FFAppState().videoController!.seekTo(newPosition);
+                },
+                child: Stack(
+                  children: [
+                    // Video
+                    VideoPlayer(FFAppState().videoController!),
+
+                    // Visualización del timestamp en la esquina inferior izquierda.
+                    Positioned(
+                      bottom: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: ValueListenableBuilder<VideoPlayerValue>(
+                          valueListenable: FFAppState().videoController!,
+                          builder: (context, value, child) {
+                            final currentPos = value.position;
+                            return Text(
+                              _formatDuration(currentPos),
+                              style: const TextStyle(color: Colors.white),
+                            );
                           },
-                          child: Center(
-                            child: Container(
-                              padding: const EdgeInsets.all(6.0),
-                              decoration: const BoxDecoration(
-                                color: Colors.black54,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.play_arrow,
-                                size: 25,
-                                color: Colors.white,
+                        ),
+                      ),
+                    ),
+
+                    // Overlay para mostrar el ícono "play" cuando el video está pausado.
+                    Positioned.fill(
+                      child: ValueListenableBuilder<VideoPlayerValue>(
+                        valueListenable: FFAppState().videoController!,
+                        builder: (context, value, child) {
+                          return AnimatedOpacity(
+                            opacity: !value.isPlaying ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 150),
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.all(6.0),
+                                decoration: const BoxDecoration(
+                                  color: Colors.black54,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.play_arrow,
+                                  size: 25,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         );
