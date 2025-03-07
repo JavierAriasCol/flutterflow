@@ -62,15 +62,103 @@ class _LocalVideoCompressState extends State<LocalVideoCompress> {
         return Center(
           child: AspectRatio(
             aspectRatio: controller!.value.aspectRatio,
-            child: Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(widget.borderVideo),
-                  child: VideoPlayer(controller!),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(widget.borderVideo),
+              child: GestureDetector(
+                // Alterna reproducción al tocar - ahora cubre toda el área
+                onTap: () {
+                  if (controller!.value.isPlaying) {
+                    controller!.pause();
+                  } else {
+                    controller!.play();
+                  }
+                },
+                // Scrubbing: desplaza el timestamp del video al arrastrar horizontalmente
+                onHorizontalDragUpdate: (details) {
+                  // Obtiene la posición actual del video.
+                  final currentPosition = controller!.value.position;
+
+                  // Factor de sensibilidad (segundos por píxel).
+                  const double sensitivity = 0.1;
+                  // Calcula el cambio en milisegundos.
+                  int deltaMs = (sensitivity * details.delta.dx * 1000).round();
+                  final deltaDuration = Duration(milliseconds: deltaMs);
+
+                  // Calcula la nueva posición sumando/restando el delta.
+                  Duration newPosition = currentPosition + deltaDuration;
+
+                  // Limita la nueva posición a los límites válidos.
+                  if (newPosition < Duration.zero) {
+                    newPosition = Duration.zero;
+                  } else if (newPosition > controller!.value.duration) {
+                    newPosition = controller!.value.duration;
+                  }
+
+                  // Actualiza la posición del video.
+                  controller!.seekTo(newPosition);
+                },
+                child: Stack(
+                  children: [
+                    // Video
+                    VideoPlayer(controller!),
+
+                    // Visualización del timestamp en la esquina inferior izquierda.
+                    Positioned(
+                      bottom: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: ValueListenableBuilder<VideoPlayerValue>(
+                          valueListenable: controller!,
+                          builder: (context, value, child) {
+                            final currentPos = value.position;
+                            return Text(
+                              _formatDuration(currentPos),
+                              style: const TextStyle(color: Colors.white),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+
+                    // Overlay para mostrar el ícono "play" cuando el video está pausado.
+                    Positioned.fill(
+                      child: ValueListenableBuilder<VideoPlayerValue>(
+                        valueListenable: controller!,
+                        builder: (context, value, child) {
+                          return AnimatedOpacity(
+                            opacity: !value.isPlaying ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 150),
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.all(8.0),
+                                decoration: const BoxDecoration(
+                                  color: Colors.black54,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.play_arrow,
+                                  size: 30,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          )
+          ),
         );
       },
     );
