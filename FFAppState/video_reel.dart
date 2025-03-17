@@ -127,7 +127,6 @@ class _VideoReelState extends State<VideoReel> {
       // ya que VideoPlayerController no puede convertirse a JSON
       final controllerData = {
         'id': widget.videoguid,
-        'url': widget.videoUrl,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       };
 
@@ -211,7 +210,57 @@ class _VideoReelState extends State<VideoReel> {
       // Si se lanza una excepción, el controlador está desechado
       // Agregamos el ID a la lista de controladores desechados para evitar futuros intentos
       _disposedControllerIds.add(widget.videoguid);
+      // Eliminamos la referencia del mapa de controladores
+      _controllers.remove(widget.videoguid);
       return true;
+    }
+  }
+
+  // Método para recrear un controlador que ha sido desechado
+  Future<void> _recreateController() async {
+    // Eliminar el ID de la lista de desechados
+    _disposedControllerIds.remove(widget.videoguid);
+
+    // Crear un nuevo controlador
+    controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
+      ..setLooping(true);
+
+    // Asociarlo con el ID
+    _associateControllerWithId(widget.videoguid, controller);
+
+    // Actualizar la entrada en el estado global si existe
+    final existingIndex = FFAppState()
+        .videoReelController
+        .indexWhere((item) => item is Map && item['id'] == widget.videoguid);
+
+    if (existingIndex >= 0) {
+      // Actualizar el timestamp para este controlador en el AppState
+      final updatedData = Map<String, dynamic>.from(
+          FFAppState().videoReelController[existingIndex] as Map);
+      updatedData['timestamp'] = DateTime.now().millisecondsSinceEpoch;
+      FFAppState().updateVideoReelControllerAtIndex(
+        existingIndex,
+        (_) => updatedData,
+      );
+    } else {
+      // Si no existe, agregarlo al AppState
+      final controllerData = {
+        'id': widget.videoguid,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      };
+      FFAppState().addToVideoReelController(controllerData);
+    }
+
+    // Inicializar el controlador
+    _initializeFuture = controller!.initialize().catchError((error) {
+      print(
+          'Error al recrear controlador para video ${widget.videoguid}: $error');
+      return Future.error(error);
+    });
+
+    // Actualizar el estado para reconstruir el widget
+    if (mounted) {
+      setState(() {});
     }
   }
 
@@ -362,12 +411,16 @@ class _VideoReelState extends State<VideoReel> {
 
           // Verificar si el controlador está desechado antes de usarlo
           if (controller == null || _isControllerDisposed(controller!)) {
+            // En lugar de mostrar un mensaje de error, recreamos el controlador
+            print('Recreando controlador para video: ${widget.videoguid}');
+
+            // Iniciar el proceso de recreación del controlador
+            _recreateController();
+
+            // Mientras se inicializa, mostrar un indicador de carga sin mensaje de error
             return const Center(
-              child: Text(
-                'El controlador de video no está disponible',
-                style: TextStyle(color: Colors.white),
-                textAlign: TextAlign.center,
-              ),
+              child: CircularProgressIndicator(
+                  strokeWidth: 1, color: Colors.white),
             );
           }
 
