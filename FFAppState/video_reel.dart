@@ -39,6 +39,22 @@ class _VideoReelState extends State<VideoReel> {
   VideoPlayerController? controller;
   Future<void>? _initializeFuture;
   bool _hasStarted = false;
+  
+  // Mapa estático para almacenar referencias a los controladores por ID
+  // Este mapa no se serializa, solo se mantiene en memoria
+  static final Map<String, VideoPlayerController> _controllers = {};
+  
+  // Asocia un ID con un controlador en la memoria, sin serializar
+  void _associateControllerWithId(String id, VideoPlayerController? controller) {
+    if (controller != null) {
+      _controllers[id] = controller;
+    }
+  }
+  
+  // Obtiene un controlador previamente almacenado por ID
+  VideoPlayerController? _getControllerById(String id) {
+    return _controllers[id];
+  }
 
   @override
   void initState() {
@@ -55,27 +71,42 @@ class _VideoReelState extends State<VideoReel> {
         .indexWhere((item) => item is Map && item['id'] == widget.videoguid);
 
     if (existingIndex >= 0) {
-      // Usar el controlador existente
-      controller = FFAppState().videoReelController[existingIndex]['controller']
-          as VideoPlayerController;
-
-      // Verificar si el controlador ya está inicializado
-      if (controller!.value.isInitialized) {
-        _initializeFuture =
-            Future.value(); // El controlador ya está inicializado
-        print(
-            'Reutilizando controlador inicializado para video: ${widget.videoguid}');
+      // Buscar el controlador en nuestro mapa de memoria usando el ID
+      controller = _getControllerById(widget.videoguid);
+      
+      if (controller != null) {
+        // Verificar si el controlador ya está inicializado
+        if (controller!.value.isInitialized) {
+          _initializeFuture = Future.value(); // El controlador ya está inicializado
+          print('Reutilizando controlador inicializado para video: ${widget.videoguid}');
+        } else {
+          // Si no está inicializado, inicializarlo
+          _initializeFuture = controller!.initialize();
+          print('Inicializando controlador reutilizado para video: ${widget.videoguid}');
+        }
       } else {
-        // Si no está inicializado, inicializarlo
+        // Si por alguna razón no encontramos el controlador en memoria, crear uno nuevo
+        print('Controlador no encontrado en memoria, creando uno nuevo: ${widget.videoguid}');
+        controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
+          ..setLooping(true);
+        _associateControllerWithId(widget.videoguid, controller);
         _initializeFuture = controller!.initialize();
-        print(
-            'Inicializando controlador reutilizado para video: ${widget.videoguid}');
       }
-
+      
       // Actualizar el timestamp para mantener este controlador como reciente
       if (FFAppState().videoReelController[existingIndex] is Map) {
-        (FFAppState().videoReelController[existingIndex] as Map)['timestamp'] =
-            DateTime.now().millisecondsSinceEpoch;
+        // Crear una copia del mapa para evitar modificar el original directamente
+        final updatedData = Map<String, dynamic>.from(
+            FFAppState().videoReelController[existingIndex] as Map);
+        
+        // Actualizar el timestamp
+        updatedData['timestamp'] = DateTime.now().millisecondsSinceEpoch;
+        
+        // Actualizar el mapa en el AppState
+        FFAppState().updateVideoReelControllerAtIndex(
+          existingIndex,
+          (_) => updatedData,
+        );
       }
     } else {
       // Crear un nuevo controlador
@@ -83,12 +114,19 @@ class _VideoReelState extends State<VideoReel> {
         ..setLooping(true);
 
       // Almacenar en el estado global
-      FFAppState().addToVideoReelController({
+      // IMPORTANTE: No almacenamos el controlador directamente en el mapa que se serializará
+      // ya que VideoPlayerController no puede convertirse a JSON
+      final controllerData = {
         'id': widget.videoguid,
-        'controller': controller,
         'url': widget.videoUrl,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
-      });
+      };
+      
+      // Almacenamos en el estado global y mantenemos una referencia al controlador en memoria
+      FFAppState().addToVideoReelController(controllerData);
+      
+      // Crear un mapa en memoria para asociar el ID con el controlador (sin serializar)
+      _associateControllerWithId(widget.videoguid, controller);
 
       // Inicializar el controlador con manejo de errores
       _initializeFuture = controller!.initialize().catchError((error) {
@@ -154,28 +192,47 @@ class _VideoReelState extends State<VideoReel> {
   void _cleanupOldControllers() {
     // Ejemplo: mantener solo los 5 controladores más recientes
     if (FFAppState().videoReelController.length > 5) {
-      // Ordenar por timestamp (más reciente primero)
-      FFAppState().videoReelController.sort((a, b) {
-        if (a is Map && b is Map) {
-          final timestampA = a['timestamp'] ?? 0;
-          final timestampB = b['timestamp'] ?? 0;
-          return timestampB.compareTo(timestampA);
+      try {
+        // Crear una copia para trabajar con ella
+        final controllersCopy = List<dynamic>.from(FFAppState().videoReelController);
+        
+        // Ordenar por timestamp (más reciente primero)
+        controllersCopy.sort((a, b) {
+          if (a is Map && b is Map) {
+            final timestampA = a['timestamp'] ?? 0;
+            final timestampB = b['timestamp'] ?? 0;
+            return timestampB.compareTo(timestampA);
+          }
+          return 0;
+        });
+        
+        // Identificar los IDs a eliminar (los que no están entre los 5 más recientes)
+        final idsToRemove = <String>[];
+        for (final item in controllersCopy.sublist(5)) {
+          if (item is Map && item['id'] != null) {
+            final id = item['id'].toString();
+            if (id.isNotEmpty) {
+              idsToRemove.add(id);
+            }
+          }
         }
-        return 0;
-      });
-
-      // Eliminar los más antiguos
-      final controllersToRemove = FFAppState().videoReelController.sublist(5);
-      for (final item in controllersToRemove) {
-        if (item is Map && item['controller'] is VideoPlayerController) {
-          (item['controller'] as VideoPlayerController).dispose();
-          print('Controlador antiguo dispuesto: ${item['id']}');
+            
+        // Disponer los controladores que serán eliminados
+        for (final id in idsToRemove) {
+          final controller = _controllers[id]; // Acceso directo al mapa
+          if (controller != null) {
+            controller.dispose();
+            _controllers.remove(id); // Eliminar de nuestro mapa en memoria
+            print('Controlador antiguo dispuesto: $id');
+          }
         }
+        
+        // Mantener solo los mapas de metadatos de los 5 más recientes en FFAppState
+        FFAppState().videoReelController = controllersCopy.sublist(0, 5);
+        
+      } catch (e) {
+        print('Error al limpiar controladores antiguos: $e');
       }
-
-      // Mantener solo los 5 más recientes
-      FFAppState().videoReelController =
-          FFAppState().videoReelController.sublist(0, 5);
     }
   }
 
