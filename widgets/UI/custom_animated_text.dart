@@ -14,10 +14,10 @@ class CustomAnimatedText extends StatefulWidget {
     this.fontFamily = 'Merriweather',
     this.animationDuration = 200,
     this.letterSpacing = 0,
-    this.completeAnimation = false,
+    this.completedAnimation = false, // <-- Usaremos este parámetro
     this.percentageTrigger = 0.2,
     this.actionTriggered,
-    this.onFinished,
+    this.onFinished, // <-- Y esta acción
   });
 
   final double? width;
@@ -28,7 +28,7 @@ class CustomAnimatedText extends StatefulWidget {
   final String fontFamily;
   final int animationDuration;
   final double? letterSpacing;
-  final bool? completeAnimation;
+  final bool? completedAnimation;
   final double? percentageTrigger;
   final Future Function()? actionTriggered;
   final Future Function()? onFinished;
@@ -43,6 +43,9 @@ class _CustomAnimatedTextState extends State<CustomAnimatedText>
   List<Animation<double>> _letterAnimations = [];
   late List<String> _words;
   late List<int> _wordStartIndices;
+
+  // 1. NUEVO ESTADO para saber si la animación ha finalizado.
+  bool _isAnimationCompleted = false;
 
   @override
   void initState() {
@@ -59,6 +62,21 @@ class _CustomAnimatedTextState extends State<CustomAnimatedText>
         milliseconds: totalCharacters * widget.animationDuration,
       ),
     );
+
+    // 2. AÑADIMOS UN LISTENER al controlador.
+    // Se ejecutará cada vez que el estado de la animación cambie (ej: en curso, completada).
+    _mainController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        // Si la animación se completa de forma natural...
+        if (!_isAnimationCompleted) {
+          // Prevenimos múltiples llamadas
+          setState(() {
+            _isAnimationCompleted = true; // Actualizamos nuestro estado
+          });
+          widget.onFinished?.call(); // Disparamos la acción onFinished
+        }
+      }
+    });
 
     int currentChar = 0;
     _letterAnimations = [];
@@ -84,7 +102,15 @@ class _CustomAnimatedTextState extends State<CustomAnimatedText>
       currentChar++;
     }
 
-    _mainController.forward();
+    // 3. LÓGICA DE INICIO
+    // Si completedAnimation es true desde el principio, la completamos inmediatamente.
+    if (widget.completedAnimation == true) {
+      _mainController.value = 1.0; // Saltamos al final de la animación
+      _isAnimationCompleted = true; // Marcamos el estado como completado
+      // La acción onFinished se llama en el build para este caso.
+    } else {
+      _mainController.forward(); // Si no, iniciamos la animación normalmente.
+    }
   }
 
   @override
@@ -102,10 +128,40 @@ class _CustomAnimatedTextState extends State<CustomAnimatedText>
       _mainController.dispose();
       _setupAnimations();
     }
+
+    // 4. MANEJO DE ACTUALIZACIÓN
+    // Si el parámetro completedAnimation cambia a 'true' mientras el widget ya existe.
+    if (widget.completedAnimation == true &&
+        oldWidget.completedAnimation == false) {
+      if (!_isAnimationCompleted) {
+        // Solo si no estaba ya completada
+        _mainController.value = 1.0; // Saltamos la animación al final
+        setState(() {
+          _isAnimationCompleted = true; // Actualizamos el estado
+        });
+        widget.onFinished?.call(); // Disparamos la acción
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // 5. MANEJO ESPECIAL DE onFinished CUANDO SE COMPLETA EN EL INICIO
+    // Usamos addPostFrameCallback para asegurar que la acción se ejecute de forma segura
+    // después de que el frame inicial se haya construido.
+    if (widget.completedAnimation == true && !_isAnimationCompleted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          widget.onFinished?.call();
+        }
+      });
+    }
+
+    // Si la animación debe mostrarse completa (ya sea por el parámetro o por estado),
+    // la opacidad es 1.0. Si no, usamos el valor de la animación.
+    final bool isCompleted =
+        widget.completedAnimation == true || _isAnimationCompleted;
+
     return SizedBox(
       width: widget.width,
       height: widget.height,
@@ -129,8 +185,10 @@ class _CustomAnimatedTextState extends State<CustomAnimatedText>
                     children: List.generate(
                       word.length,
                       (letterIndex) => Opacity(
-                        opacity:
-                            _letterAnimations[startIndex + letterIndex].value,
+                        // 6. LÓGICA DE OPACIDAD ACTUALIZADA
+                        opacity: isCompleted
+                            ? 1.0
+                            : _letterAnimations[startIndex + letterIndex].value,
                         child: Text(
                           word[letterIndex],
                           style: TextStyle(
