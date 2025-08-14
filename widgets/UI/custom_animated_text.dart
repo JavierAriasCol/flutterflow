@@ -15,9 +15,8 @@ class CustomAnimatedText extends StatefulWidget {
     this.animationDuration = 200,
     this.letterSpacing = 0,
     this.completedAnimation = false, // <-- Usaremos este parámetro
-    this.percentageTrigger = 0.2,
-    this.actionTriggered,
     this.onFinished, // <-- Y esta acción
+    this.onProgressUpdate, // <-- PARÁMETRO NUEVO
   });
 
   final double? width;
@@ -29,9 +28,8 @@ class CustomAnimatedText extends StatefulWidget {
   final int animationDuration;
   final double? letterSpacing;
   final bool? completedAnimation;
-  final double? percentageTrigger;
-  final Future Function()? actionTriggered;
   final Future Function()? onFinished;
+  final Future Function(double progress)? onProgressUpdate;
 
   @override
   State<CustomAnimatedText> createState() => _CustomAnimatedTextState();
@@ -62,6 +60,22 @@ class _CustomAnimatedTextState extends State<CustomAnimatedText>
         milliseconds: totalCharacters * widget.animationDuration,
       ),
     );
+
+    // ---------------------------------------------------------------------------
+    // NUEVO LISTENER PARA EL PROGRESO DE LA ANIMACIÓN
+    //
+    // Propósito:
+    // Ejecutar una acción en cada fotograma ("tick") de la animación.
+    //
+    // Funcionamiento:
+    // '.addListener' registra una función que se llama continuamente mientras
+    // la animación está en curso. Dentro de ella, invocamos nuestro callback
+    // 'onProgressUpdate', pasándole el valor actual del controlador
+    // (_mainController.value), que representa el progreso de 0.0 a 1.0.
+    // ---------------------------------------------------------------------------
+    _mainController.addListener(() {
+      widget.onProgressUpdate?.call(_mainController.value);
+    });
 
     // 2. AÑADIMOS UN LISTENER al controlador.
     // Se ejecutará cada vez que el estado de la animación cambie (ej: en curso, completada).
