@@ -121,7 +121,12 @@ class _CustomAnimatedTextState extends State<CustomAnimatedText>
     if (widget.completedAnimation == true) {
       _mainController.value = 1.0; // Saltamos al final de la animación
       _isAnimationCompleted = true; // Marcamos el estado como completado
-      // La acción onFinished se llama en el build para este caso.
+
+      // --- CÓDIGO EXTRA AÑADIDO ---
+      // Llamamos manualmente a onProgressUpdate con 1.0 para asegurar que el
+      // estado del padre se actualice al 100% cuando se completa forzadamente.
+      widget.onProgressUpdate?.call(1.0);
+      // --- FIN DEL CÓDIGO EXTRA ---
     } else {
       _mainController.forward(); // Si no, iniciamos la animación normalmente.
     }
@@ -150,6 +155,12 @@ class _CustomAnimatedTextState extends State<CustomAnimatedText>
       if (!_isAnimationCompleted) {
         // Solo si no estaba ya completada
         _mainController.value = 1.0; // Saltamos la animación al final
+
+        // --- CÓDIGO EXTRA AÑADIDO ---
+        // También llamamos a onProgressUpdate aquí para el mismo propósito.
+        widget.onProgressUpdate?.call(1.0);
+        // --- FIN DEL CÓDIGO EXTRA ---
+
         setState(() {
           _isAnimationCompleted = true; // Actualizamos el estado
         });
