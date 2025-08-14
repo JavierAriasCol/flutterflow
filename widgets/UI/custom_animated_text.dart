@@ -7,27 +7,25 @@ class CustomAnimatedText extends StatefulWidget {
   const CustomAnimatedText({
     super.key,
     this.width,
-    this.height = 60.0,
+    this.height,
     required this.text,
-    this.fontSize = 16.0,
-    this.color = Colors.white,
-    this.fontFamily = 'Merriweather',
-    this.animationDuration = 200,
-    this.letterSpacing = 0,
-    this.completedAnimation = false, // <-- Usaremos este parámetro
-    this.onFinished, // <-- Y esta acción
-    this.onProgressUpdate, // <-- PARÁMETRO NUEVO
+    required this.fontSize,
+    required this.color,
+    required this.fontFamily,
+    required this.animationDuration,
+    required this.letterSpacing,
+    this.onFinished,
+    this.onProgressUpdate,
   });
 
   final double? width;
-  final double height;
+  final double? height;
   final String text;
   final double fontSize;
   final Color color;
   final String fontFamily;
   final int animationDuration;
-  final double? letterSpacing;
-  final bool? completedAnimation;
+  final double letterSpacing;
   final Future Function()? onFinished;
   final Future Function(double progress)? onProgressUpdate;
 
@@ -42,7 +40,7 @@ class _CustomAnimatedTextState extends State<CustomAnimatedText>
   late List<String> _words;
   late List<int> _wordStartIndices;
 
-  // 1. NUEVO ESTADO para saber si la animación ha finalizado.
+  // 1. ESTADO para saber si la animación ha finalizado.
   bool _isAnimationCompleted = false;
 
   @override
@@ -61,24 +59,14 @@ class _CustomAnimatedTextState extends State<CustomAnimatedText>
       ),
     );
 
-    // ---------------------------------------------------------------------------
-    // NUEVO LISTENER PARA EL PROGRESO DE LA ANIMACIÓN
-    //
-    // Propósito:
-    // Ejecutar una acción en cada fotograma ("tick") de la animación.
-    //
-    // Funcionamiento:
-    // '.addListener' registra una función que se llama continuamente mientras
-    // la animación está en curso. Dentro de ella, invocamos nuestro callback
-    // 'onProgressUpdate', pasándole el valor actual del controlador
-    // (_mainController.value), que representa el progreso de 0.0 a 1.0.
-    // ---------------------------------------------------------------------------
+    // 2. LISTENER PARA EL PROGRESO DE LA ANIMACIÓN
+    // Se ejecuta en cada fotograma ("tick") de la animación.
     _mainController.addListener(() {
       widget.onProgressUpdate?.call(_mainController.value);
     });
 
-    // 2. AÑADIMOS UN LISTENER al controlador.
-    // Se ejecutará cada vez que el estado de la animación cambie (ej: en curso, completada).
+    // 3. LISTENER PARA EL ESTADO DE LA ANIMACIÓN
+    // Se ejecuta cuando la animación empieza, se detiene o se completa.
     _mainController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         // Si la animación se completa de forma natural...
@@ -116,20 +104,8 @@ class _CustomAnimatedTextState extends State<CustomAnimatedText>
       currentChar++;
     }
 
-    // 3. LÓGICA DE INICIO
-    // Si completedAnimation es true desde el principio, la completamos inmediatamente.
-    if (widget.completedAnimation == true) {
-      _mainController.value = 1.0; // Saltamos al final de la animación
-      _isAnimationCompleted = true; // Marcamos el estado como completado
-
-      // --- CÓDIGO EXTRA AÑADIDO ---
-      // Llamamos manualmente a onProgressUpdate con 1.0 para asegurar que el
-      // estado del padre se actualice al 100% cuando se completa forzadamente.
-      widget.onProgressUpdate?.call(1.0);
-      // --- FIN DEL CÓDIGO EXTRA ---
-    } else {
-      _mainController.forward(); // Si no, iniciamos la animación normalmente.
-    }
+    // La animación ahora siempre se inicia al construirse.
+    _mainController.forward();
   }
 
   @override
@@ -141,52 +117,17 @@ class _CustomAnimatedTextState extends State<CustomAnimatedText>
   @override
   void didUpdateWidget(CustomAnimatedText oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Si el texto o la duración cambian, se reinicia la animación.
     if (oldWidget.text != widget.text ||
         oldWidget.animationDuration != widget.animationDuration) {
       _words = widget.text.split(' ');
       _mainController.dispose();
       _setupAnimations();
     }
-
-    // 4. MANEJO DE ACTUALIZACIÓN
-    // Si el parámetro completedAnimation cambia a 'true' mientras el widget ya existe.
-    if (widget.completedAnimation == true &&
-        oldWidget.completedAnimation == false) {
-      if (!_isAnimationCompleted) {
-        // Solo si no estaba ya completada
-        _mainController.value = 1.0; // Saltamos la animación al final
-
-        // --- CÓDIGO EXTRA AÑADIDO ---
-        // También llamamos a onProgressUpdate aquí para el mismo propósito.
-        widget.onProgressUpdate?.call(1.0);
-        // --- FIN DEL CÓDIGO EXTRA ---
-
-        setState(() {
-          _isAnimationCompleted = true; // Actualizamos el estado
-        });
-        widget.onFinished?.call(); // Disparamos la acción
-      }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // 5. MANEJO ESPECIAL DE onFinished CUANDO SE COMPLETA EN EL INICIO
-    // Usamos addPostFrameCallback para asegurar que la acción se ejecute de forma segura
-    // después de que el frame inicial se haya construido.
-    if (widget.completedAnimation == true && !_isAnimationCompleted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          widget.onFinished?.call();
-        }
-      });
-    }
-
-    // Si la animación debe mostrarse completa (ya sea por el parámetro o por estado),
-    // la opacidad es 1.0. Si no, usamos el valor de la animación.
-    final bool isCompleted =
-        widget.completedAnimation == true || _isAnimationCompleted;
-
     return SizedBox(
       width: widget.width,
       height: widget.height,
@@ -210,10 +151,10 @@ class _CustomAnimatedTextState extends State<CustomAnimatedText>
                     children: List.generate(
                       word.length,
                       (letterIndex) => Opacity(
-                        // 6. LÓGICA DE OPACIDAD ACTUALIZADA
-                        opacity: isCompleted
-                            ? 1.0
-                            : _letterAnimations[startIndex + letterIndex].value,
+                        // La opacidad de cada letra está directamente ligada
+                        // al valor de su animación correspondiente.
+                        opacity:
+                            _letterAnimations[startIndex + letterIndex].value,
                         child: Text(
                           word[letterIndex],
                           style: TextStyle(
