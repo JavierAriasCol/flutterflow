@@ -3,7 +3,7 @@ import '/backend/schema/structs/index.dart';
 import '/backend/supabase/supabase.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/custom_code/actions/index.dart'; // Imports other custom actions
+import 'index.dart'; // Imports other custom actions
 import '/flutter_flow/custom_functions.dart'; // Imports custom functions
 import 'package:flutter/material.dart';
 // Begin custom action code
@@ -43,15 +43,13 @@ Future<String?> loginSignUpEmail(
       return "Este usuario ya ha sido registrado.";
     }
 
-    // Update app state for successful registration
-    FFAppState().update(() {
-      FFAppState().registerEmail = email;
-      FFAppState().routeUserTo = '/emailConfirmed';
-    });
+    // Update app state without rebuilding UI (performance optimization)
+    FFAppState().registerEmail = email;
+    FFAppState().routeUserTo = '/email-confirm';
 
     // Navigate to email confirmation page if context provided
     if (context != null && context.mounted) {
-      context.pushNamed('email-confirmed');
+      context.pushNamed('email-confirm');
     }
 
     return null; // Success - no error message
