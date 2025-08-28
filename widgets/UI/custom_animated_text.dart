@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
+import 'dart:async';
 
 class CustomAnimatedText extends StatefulWidget {
   const CustomAnimatedText({
@@ -14,6 +15,7 @@ class CustomAnimatedText extends StatefulWidget {
     required this.fontFamily,
     required this.animationDuration,
     required this.letterSpacing,
+    this.animationDelay,
     this.onFinished,
     this.onProgressUpdate,
   });
@@ -26,6 +28,7 @@ class CustomAnimatedText extends StatefulWidget {
   final String fontFamily;
   final int animationDuration;
   final double letterSpacing;
+  final int? animationDelay;
   final Future Function()? onFinished;
   final Future Function(double progress)? onProgressUpdate;
 
@@ -104,8 +107,28 @@ class _CustomAnimatedTextState extends State<CustomAnimatedText>
       currentChar++;
     }
 
-    // La animación ahora siempre se inicia al construirse.
-    _mainController.forward();
+    // ---------------------------------------------------------------------------
+    // NUEVA LÓGICA DE INICIO CON RETRASO
+    //
+    // Propósito:
+    // Retrasar el inicio de la animación según el parámetro 'animationDelay'.
+    //
+    // Funcionamiento:
+    // Se usa un Future.delayed para esperar la cantidad de milisegundos
+    // especificada antes de llamar a _mainController.forward(). Se comprueba
+    // si el widget sigue "montado" (visible) para evitar errores si el
+    // usuario navega a otra pantalla antes de que el retraso termine.
+    // ---------------------------------------------------------------------------
+    final delay = widget.animationDelay ?? 0;
+    if (delay > 0) {
+      Future.delayed(Duration(milliseconds: delay), () {
+        if (mounted) {
+          _mainController.forward();
+        }
+      });
+    } else {
+      _mainController.forward();
+    }
   }
 
   @override
