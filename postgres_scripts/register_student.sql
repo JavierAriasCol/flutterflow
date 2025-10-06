@@ -3,21 +3,21 @@ CREATE OR REPLACE FUNCTION public.register_student(
     p_first_name TEXT,
     p_last_name TEXT,
     p_email TEXT,
-    p_phone_number TEXT DEFAULT NULL,
+    p_phone_number TEXT,
     p_account_type public.account_type,
-    p_whatsapp_consent BOOLEAN DEFAULT FALSE,
-    p_origin_name TEXT DEFAULT NULL,
-    p_personal_email TEXT DEFAULT NULL,
+    p_whatsapp_consent BOOLEAN,
+    p_personal_email TEXT,
     p_birth_date TEXT, -- Accepts string or ISO format
-    p_nationality TEXT DEFAULT NULL,
-    p_ethnicity TEXT DEFAULT NULL,
-    p_region TEXT DEFAULT NULL,
+    p_nationality TEXT,
+    p_ethnicity TEXT,
     p_degree_type public.degree_type,
     p_university TEXT,
     p_main_degree_category TEXT,
-    p_degree_description TEXT DEFAULT NULL,
-    p_month_of_graduation TEXT DEFAULT NULL,
-    p_year_of_graduation TEXT DEFAULT NULL,
+    p_degree_description TEXT,
+    p_month_of_graduation TEXT,
+    p_year_of_graduation TEXT,
+    p_origin_name TEXT DEFAULT NULL,
+    p_region TEXT DEFAULT NULL,
     p_referrer_code TEXT DEFAULT NULL -- Optional referral code
 )
 RETURNS JSONB
@@ -28,7 +28,7 @@ AS $$
 DECLARE
     v_display_name TEXT;
     v_birth_date DATE;
-    v_referrer_user_id TEXT;
+    v_valid_referrer BOOLEAN := FALSE;
 BEGIN
     -- ==========================
     -- BASIC VALIDATIONS
@@ -53,18 +53,16 @@ BEGIN
     END IF;
 
     -- ==========================
-    -- PARSE BIRTH DATE (flexible input)
+    -- PARSE BIRTH DATE
     -- ==========================
     BEGIN
         IF p_birth_date IS NULL OR trim(p_birth_date) = '' THEN
             v_birth_date := NULL;
         ELSE
             BEGIN
-                -- Try ISO format first (YYYY-MM-DD)
                 v_birth_date := to_date(trim(p_birth_date), 'YYYY-MM-DD');
             EXCEPTION WHEN others THEN
                 BEGIN
-                    -- Try alternative format (DD/MM/YYYY)
                     v_birth_date := to_date(trim(p_birth_date), 'DD/MM/YYYY');
                 EXCEPTION WHEN others THEN
                     RETURN jsonb_build_object(
@@ -77,14 +75,14 @@ BEGIN
         END IF;
     END;
 
-    -- Build full display name
+    -- Build display name
     v_display_name := trim(p_first_name) || ' ' || trim(p_last_name);
 
     -- ==========================
-    -- ATOMIC TRANSACTION
+    -- MAIN TRANSACTION
     -- ==========================
     BEGIN
-        -- Check for duplicates: user_id or email
+        -- Prevent duplicates
         IF EXISTS (SELECT 1 FROM public.users WHERE id = p_user_id) THEN
             RETURN jsonb_build_object('success', false, 'error', 'DUPLICATE_USER_ID', 'message', 'A user with this ID already exists');
         END IF;
@@ -92,79 +90,44 @@ BEGIN
             RETURN jsonb_build_object('success', false, 'error', 'DUPLICATE_EMAIL', 'message', 'This email is already registered');
         END IF;
 
-        -- ==========================
-        -- INSERT INTO users
-        -- ==========================
+        -- Insert user
         INSERT INTO public.users (
-            id,
-            email,
-            display_name,
-            phone_number,
-            account_type,
-            whatsapp_consent
+            id, email, display_name, phone_number, account_type, whatsapp_consent
         ) VALUES (
-            p_user_id,
-            trim(p_email),
-            v_display_name,
-            trim(p_phone_number),
-            p_account_type,
-            COALESCE(p_whatsapp_consent, FALSE)
+            p_user_id, trim(p_email), v_display_name, trim(p_phone_number),
+            p_account_type, COALESCE(p_whatsapp_consent, FALSE)
         );
 
-        -- ==========================
-        -- INSERT INTO students
-        -- ==========================
+        -- Insert student
         INSERT INTO public.students (
-            user_id,
-            origin_name,
-            first_name,
-            last_name,
-            personal_email,
-            birth_date,
-            nationality,
-            ethnicity,
-            region,
-            degree_type,
-            university,
-            main_degree_category,
-            degree_description,
-            month_of_graduation,
-            year_of_graduation
+            user_id, origin_name, first_name, last_name, personal_email, birth_date,
+            nationality, ethnicity, region, degree_type, university,
+            main_degree_category, degree_description, month_of_graduation, year_of_graduation
         ) VALUES (
-            p_user_id,
-            trim(p_origin_name),
-            trim(p_first_name),
-            trim(p_last_name),
-            trim(p_personal_email),
-            v_birth_date,
-            trim(p_nationality),
-            trim(p_ethnicity),
-            trim(p_region),
-            p_degree_type,
-            trim(p_university),
-            trim(p_main_degree_category),
-            trim(p_degree_description),
-            trim(p_month_of_graduation),
-            trim(p_year_of_graduation)
+            p_user_id, trim(p_origin_name), trim(p_first_name), trim(p_last_name),
+            trim(p_personal_email), v_birth_date, trim(p_nationality), trim(p_ethnicity),
+            trim(p_region), p_degree_type, trim(p_university),
+            trim(p_main_degree_category), trim(p_degree_description),
+            trim(p_month_of_graduation), trim(p_year_of_graduation)
         );
 
         -- ==========================
-        -- HANDLE REFERRAL LINKING (optional)
+        -- OPTIONAL: REFERRAL LINK
         -- ==========================
         IF p_referrer_code IS NOT NULL AND trim(p_referrer_code) <> '' THEN
-            SELECT user_id INTO v_referrer_user_id
-            FROM public.students
-            WHERE referral_code = trim(p_referrer_code)
-            LIMIT 1;
+            -- Validate that the referral code exists
+            v_valid_referrer := EXISTS (
+                SELECT 1 FROM public.students WHERE referral_code = trim(p_referrer_code)
+            );
 
-            IF v_referrer_user_id IS NOT NULL THEN
-                INSERT INTO public.user_referral (new_user_id, referrer_id)
-                VALUES (p_user_id, v_referrer_user_id);
+            IF v_valid_referrer THEN
+                INSERT INTO public.user_referral (new_user_id, referrer_code)
+                VALUES (p_user_id, trim(p_referrer_code));
             END IF;
-            -- If referrer_code not found, skip linking silently
+            -- If not valid, skip silently
         END IF;
 
-        -- ✅ SUCCESS
+        -- ✅ SUCCESS RESPONSE
         RETURN jsonb_build_object(
             'success', true,
             'message', 'Student successfully registered',
