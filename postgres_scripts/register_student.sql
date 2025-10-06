@@ -8,7 +8,7 @@ CREATE OR REPLACE FUNCTION public.register_student(
     p_whatsapp_consent BOOLEAN DEFAULT FALSE,
     p_origin_name TEXT DEFAULT NULL,
     p_personal_email TEXT DEFAULT NULL,
-    p_birth_date TEXT, -- Accept string or ISO format
+    p_birth_date TEXT, -- Accepts string or ISO format
     p_nationality TEXT DEFAULT NULL,
     p_ethnicity TEXT DEFAULT NULL,
     p_region TEXT DEFAULT NULL,
@@ -17,7 +17,8 @@ CREATE OR REPLACE FUNCTION public.register_student(
     p_main_degree_category TEXT,
     p_degree_description TEXT DEFAULT NULL,
     p_month_of_graduation TEXT DEFAULT NULL,
-    p_year_of_graduation TEXT DEFAULT NULL
+    p_year_of_graduation TEXT DEFAULT NULL,
+    p_referrer_code TEXT DEFAULT NULL -- Optional referral code
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -27,6 +28,7 @@ AS $$
 DECLARE
     v_display_name TEXT;
     v_birth_date DATE;
+    v_referrer_user_id TEXT;
 BEGIN
     -- ==========================
     -- BASIC VALIDATIONS
@@ -145,6 +147,22 @@ BEGIN
             trim(p_month_of_graduation),
             trim(p_year_of_graduation)
         );
+
+        -- ==========================
+        -- HANDLE REFERRAL LINKING (optional)
+        -- ==========================
+        IF p_referrer_code IS NOT NULL AND trim(p_referrer_code) <> '' THEN
+            SELECT user_id INTO v_referrer_user_id
+            FROM public.students
+            WHERE referral_code = trim(p_referrer_code)
+            LIMIT 1;
+
+            IF v_referrer_user_id IS NOT NULL THEN
+                INSERT INTO public.user_referral (new_user_id, referrer_id)
+                VALUES (p_user_id, v_referrer_user_id);
+            END IF;
+            -- If referrer_code not found, skip linking silently
+        END IF;
 
         -- ✅ SUCCESS
         RETURN jsonb_build_object(
