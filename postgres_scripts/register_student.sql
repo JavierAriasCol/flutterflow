@@ -14,8 +14,8 @@ CREATE OR REPLACE FUNCTION public.register_student(
     p_university TEXT,
     p_main_degree_category TEXT,
     p_degree_description TEXT,
-    p_month_of_graduation TEXT,
-    p_year_of_graduation TEXT,
+    p_month_of_graduation TEXT DEFAULT NULL,
+    p_year_of_graduation TEXT DEFAULT NULL,
     p_origin_name TEXT DEFAULT NULL,
     p_region TEXT DEFAULT NULL,
     p_referrer_code TEXT DEFAULT NULL -- Optional referral code
@@ -104,18 +104,27 @@ BEGIN
             nationality, ethnicity, region, degree_type, university,
             main_degree_category, degree_description, month_of_graduation, year_of_graduation
         ) VALUES (
-            p_user_id, trim(p_origin_name), trim(p_first_name), trim(p_last_name),
-            trim(p_personal_email), v_birth_date, trim(p_nationality), trim(p_ethnicity),
-            trim(p_region), p_degree_type, trim(p_university),
-            trim(p_main_degree_category), trim(p_degree_description),
-            trim(p_month_of_graduation), trim(p_year_of_graduation)
+            p_user_id,
+            NULLIF(trim(p_origin_name), ''),
+            trim(p_first_name),
+            trim(p_last_name),
+            NULLIF(trim(p_personal_email), ''),
+            v_birth_date,
+            NULLIF(trim(p_nationality), ''),
+            NULLIF(trim(p_ethnicity), ''),
+            NULLIF(trim(p_region), ''),
+            p_degree_type,
+            trim(p_university),
+            NULLIF(trim(p_main_degree_category), ''),
+            NULLIF(trim(p_degree_description), ''),
+            NULLIF(trim(p_month_of_graduation), ''),  -- ✅ allows NULL safely
+            NULLIF(trim(p_year_of_graduation), '')    -- ✅ allows NULL safely
         );
 
         -- ==========================
         -- OPTIONAL: REFERRAL LINK
         -- ==========================
         IF p_referrer_code IS NOT NULL AND trim(p_referrer_code) <> '' THEN
-            -- Validate that the referral code exists
             v_valid_referrer := EXISTS (
                 SELECT 1 FROM public.students WHERE referral_code = trim(p_referrer_code)
             );
@@ -124,7 +133,6 @@ BEGIN
                 INSERT INTO public.user_referral (new_user_id, referrer_code)
                 VALUES (p_user_id, trim(p_referrer_code));
             END IF;
-            -- If not valid, skip silently
         END IF;
 
         -- ✅ SUCCESS RESPONSE
