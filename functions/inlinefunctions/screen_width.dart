@@ -1,0 +1,1 @@
+((MediaQuery.sizeOf(context).width * 0.8) /FFAppState().uNewPost.images.aspectRatio)
